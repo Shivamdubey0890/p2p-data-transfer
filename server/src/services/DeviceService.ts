@@ -54,14 +54,16 @@ export class DeviceService {
   /**
    * Permission gate evaluated before any signaling is forwarded.
    * Extend here for allow-lists, same-account-only policies, etc.
+   *
+   * Deliberately does NOT check the source's presence: the caller proved
+   * liveness by making this request (valid device JWT / live socket), and the
+   * in-memory presence row can lag behind reality around restarts/reconnects.
    */
   async assertCanConnect(fromDeviceId: string, toDeviceId: string): Promise<Device> {
     if (fromDeviceId === toDeviceId) throw new HttpError(400, 'Cannot connect a device to itself');
-    const from = await this.devices.findById(fromDeviceId);
-    if (!from || from.status === 'offline') throw new HttpError(403, 'Source device is not online');
     const target = await this.devices.findById(toDeviceId);
     if (!target || target.status === 'offline' || !target.socketId) {
-      throw new HttpError(404, 'Target device is not online');
+      throw new HttpError(404, 'Target device is not online — ask them to reload the page');
     }
     return target;
   }
