@@ -1,0 +1,27 @@
+# Render Blueprint — deploys the M1 signaling server (free tier).
+# Render terminates HTTPS for you; the app runs plain HTTP internally.
+services:
+  - type: web
+    name: p2p-transfer-server
+    runtime: node
+    plan: free
+    buildCommand: npm --prefix server install && npm --prefix server run build
+    startCommand: node server/dist/server/src/index.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true # Render generates a strong random secret
+      - key: CORS_ORIGIN
+        value: https://REPLACE-WITH-YOUR-CLIENT.vercel.app
+      - key: STUN_URLS
+        value: stun:stun.l.google.com:19302,stun:stun1.l.google.com:19302
+      # Free TURN relay (Open Relay Project) — needed when both peers are
+      # behind strict NATs on the public internet. Traffic stays encrypted.
+      - key: TURN_URL
+        value: turn:openrelay.metered.ca:443
+      - key: TURN_USERNAME
+        value: openrelayproject
+      - key: TURN_PASSWORD
+        value: openrelayproject

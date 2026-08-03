@@ -1,0 +1,62 @@
+version: "3.9"
+
+# P2P Data Transfer — production composition.
+# M1 (signaling) + static client. Files NEVER flow through either container;
+# they travel browser-to-browser over WebRTC DataChannels.
+
+services:
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: "4000"
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      JWT_TTL_SECONDS: "86400"
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8080}
+      STUN_URLS: ${STUN_URLS:-stun:stun.l.google.com:19302,stun:stun1.l.google.com:19302}
+      # TURN fallback (optional). Point at the coturn service below or a managed TURN.
+      TURN_URL: ${TURN_URL:-}
+      TURN_USERNAME: ${TURN_USERNAME:-}
+      TURN_PASSWORD: ${TURN_PASSWORD:-}
+      LOG_LEVEL: info
+    ports:
+      - "4000:4000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  client:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+      args:
+        VITE_SERVER_URL: ${PUBLIC_SERVER_URL:-http://localhost:4000}
+    ports:
+      - "8080:80"
+    depends_on:
+      - server
+    restart: unless-stopped
+
+  # --- Optional TURN fallback (uncomment to enable) -------------------------
+  # TURN relays ENCRYPTED WebRTC packets when direct NAT traversal fails.
+  # It never terminates DTLS, so relayed traffic is still unreadable and is
+  # never stored. Set TURN_URL=turn:<public-ip>:3478 plus the credentials
+  # above so M1 hands this relay to clients.
+  #
+  # coturn:
+  #   image: coturn/coturn:4.6
+  #   network_mode: host          # TURN needs a wide UDP port range
+  #   command: >
+  #     -n --log-file=stdout
+  #     --lt-cred-mech
+  #     --user=${TURN_USERNAME}:${TURN_PASSWORD}
+  #     --realm=p2p-transfer
+  #     --listening-port=3478
+  #     --min-port=49160 --max-port=49200
+  #     --no-tls --no-dtls
+  #   restart: unless-stopped
