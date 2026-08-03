@@ -15,6 +15,15 @@ export function buildApp(container: Container, signaling: () => SignalingGateway
   // Signaling metadata only — 64kb is generous for SDP; files can't come through here.
   app.use(express.json({ limit: '64kb' }));
 
+  app.get('/', (_req, res) => {
+    res.json({
+      service: 'p2p-transfer-signaling',
+      status: 'ok',
+      note: 'This is the signaling API only — open the client app URL to use the product. Files never pass through this server.',
+      health: '/api/health',
+    });
+  });
+
   app.use('/api', buildRouter(container.auth, container.devices, container.history, signaling));
 
   app.use(notFoundHandler);
