@@ -48,12 +48,20 @@ export const env = {
   },
 };
 
-/** ICE servers handed to clients. TURN is pluggable: set the three TURN_* vars. */
+/**
+ * ICE servers handed to clients. TURN is pluggable: set the three TURN_* vars.
+ * TURN_URL accepts a comma-separated list — include TCP/TLS variants (:443,
+ * ?transport=tcp) so peers on mobile/CGNAT networks can still relay.
+ */
 export function buildIceServers(): RTCIceServer[] {
   const servers: RTCIceServer[] = [{ urls: env.stunUrls }];
   if (env.turn.url) {
+    const urls = env.turn.url
+      .split(',')
+      .map((u) => u.trim())
+      .filter(Boolean);
     servers.push({
-      urls: env.turn.url,
+      urls,
       username: env.turn.username,
       credential: env.turn.password,
     });

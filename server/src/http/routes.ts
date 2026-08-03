@@ -28,7 +28,8 @@ export function buildRouter(
   const router = Router();
 
   router.get('/health', (_req, res) => {
-    res.json({ status: 'ok', uptime: process.uptime() });
+    // iceServers included for deploy diagnostics (STUN/TURN reachability).
+    res.json({ status: 'ok', uptime: process.uptime(), iceServers: buildIceServers() });
   });
 
   // -- Auth ----------------------------------------------------------------

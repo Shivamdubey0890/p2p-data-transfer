@@ -22,9 +22,11 @@ services:
       - key: STUN_URLS
         value: stun:stun.l.google.com:19302,stun:stun1.l.google.com:19302
       # Free TURN relay (Open Relay Project) — needed when both peers are
-      # behind strict NATs on the public internet. Traffic stays encrypted.
+      # behind strict NATs (e.g. mobile CGNAT). Multiple transports: UDP, TCP
+      # and TLS:443 so at least one gets through restrictive networks.
+      # Traffic stays DTLS-encrypted end to end; TURN can't read it.
       - key: TURN_URL
-        value: turn:openrelay.metered.ca:443
+        value: turn:openrelay.metered.ca:80,turn:openrelay.metered.ca:443,turn:openrelay.metered.ca:443?transport=tcp,turns:openrelay.metered.ca:443?transport=tcp
       - key: TURN_USERNAME
         value: openrelayproject
       - key: TURN_PASSWORD
