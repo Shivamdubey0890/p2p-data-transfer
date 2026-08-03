@@ -22,10 +22,15 @@ export const env = {
   port: parseInt(required('PORT', '4000'), 10),
   jwtSecret,
   jwtTtlSeconds: parseInt(required('JWT_TTL_SECONDS', '86400'), 10),
-  corsOrigins: required('CORS_ORIGIN', 'http://localhost:5173')
-    .split(',')
-    .map((o) => o.trim())
-    .filter(Boolean),
+  corsOrigins: [
+    ...required('CORS_ORIGIN', 'http://localhost:5173')
+      .split(',')
+      .map((o) => o.trim())
+      .filter(Boolean),
+    // Render injects its own public URL — allow it automatically so the
+    // single-service deployment (server serves the client) just works.
+    ...(process.env.RENDER_EXTERNAL_URL ? [process.env.RENDER_EXTERNAL_URL] : []),
+  ],
   stunUrls: required('STUN_URLS', 'stun:stun.l.google.com:19302')
     .split(',')
     .map((u) => u.trim())

@@ -5,9 +5,11 @@ services:
     name: p2p-transfer-server
     runtime: node
     plan: free
+    # Single service: builds BOTH the server and the client; the server then
+    # serves the client from the same origin (no CORS, one URL).
     # --include=dev: NODE_ENV=production would otherwise skip devDependencies,
-    # and the TypeScript compiler is a devDependency.
-    buildCommand: npm --prefix server ci --include=dev && npm --prefix server run build
+    # and the TypeScript/Vite compilers are devDependencies.
+    buildCommand: npm --prefix server ci --include=dev && npm --prefix server run build && npm --prefix client ci --include=dev && npm --prefix client run build
     startCommand: node server/dist/server/src/index.js
     healthCheckPath: /api/health
     envVars:
@@ -16,7 +18,7 @@ services:
       - key: JWT_SECRET
         generateValue: true # Render generates a strong random secret
       - key: CORS_ORIGIN
-        value: https://REPLACE-WITH-YOUR-CLIENT.vercel.app
+        value: http://localhost:5173 # own URL is allowed automatically via RENDER_EXTERNAL_URL
       - key: STUN_URLS
         value: stun:stun.l.google.com:19302,stun:stun1.l.google.com:19302
       # Free TURN relay (Open Relay Project) — needed when both peers are
