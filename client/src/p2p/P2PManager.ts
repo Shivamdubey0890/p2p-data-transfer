@@ -39,6 +39,7 @@ export class P2PManager extends Emitter<P2PEvents> {
   /** Peers we've accepted/initiated — offers from anyone else are ignored. */
   private readonly authorizedPeers = new Set<string>();
   private devices: DeviceDTO[] = [];
+  private pollTimer: ReturnType<typeof setInterval> | null = null;
   private readonly transfers = new Map<string, TransferEntry>();
   private iceServers: RTCIceServer[] = [{ urls: ['stun:stun.l.google.com:19302'] }];
   chunkSize = DEFAULT_CHUNK_SIZE;
@@ -129,9 +130,27 @@ export class P2PManager extends Emitter<P2PEvents> {
     s.on('connect_error', (err) => {
       this.emit('error', `Signaling connection error: ${err.message}`);
     });
+
+    // Presence safety net: periodically reconcile with the server's
+    // authoritative list so stale/ghost entries disappear even if a
+    // broadcast was missed (e.g. around server restarts/deploys).
+    this.pollTimer = setInterval(() => {
+      if (!this.socket?.connected) return;
+      api
+        .listDevices(this.deviceToken)
+        .then(({ devices }) => {
+          this.devices = devices.filter((d) => d.id !== this.deviceId);
+          this.emit('devices', [...this.devices]);
+        })
+        .catch(() => {});
+    }, 10_000);
   }
 
   stop(): void {
+    if (this.pollTimer) {
+      clearInterval(this.pollTimer);
+      this.pollTimer = null;
+    }
     this.sessions.forEach((_, id) => this.teardownSession(id));
     this.socket?.disconnect();
     this.socket = null;

@@ -35,6 +35,10 @@ export class SignalingGateway {
     this.io = new Server(httpServer, {
       cors: { origin: env.corsOrigins, credentials: true },
       maxHttpBufferSize: MAX_SIGNAL_BYTES,
+      // Aggressive heartbeat: dead connections (killed tabs, network drops)
+      // are detected within ~15s so presence doesn't show ghosts.
+      pingInterval: 10_000,
+      pingTimeout: 5_000,
     });
 
     this.io.use((socket, next) => this.authenticate(socket).then(() => next(), next));
