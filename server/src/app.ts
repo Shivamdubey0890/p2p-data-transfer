@@ -31,10 +31,24 @@ export function buildApp(container: Container, signaling: () => SignalingGateway
   logger.info('Client dist lookup', { cwd: process.cwd(), candidates, found: clientDist ?? 'none' });
   if (clientDist) {
     logger.info(`Serving client from ${clientDist}`);
-    app.use(express.static(clientDist, { index: 'index.html', maxAge: '1h' }));
+    app.use(
+      express.static(clientDist, {
+        index: 'index.html',
+        setHeaders: (res, filePath) => {
+          // index.html must always revalidate so new deploys reach users
+          // immediately; hashed assets are immutable and cache forever.
+          if (filePath.endsWith('index.html')) {
+            res.setHeader('Cache-Control', 'no-cache');
+          } else if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+          }
+        },
+      })
+    );
     // SPA fallback for non-API GET routes
     app.get('*', (req, res, next) => {
       if (req.path.startsWith('/api') || req.path.startsWith('/socket.io')) return next();
+      res.setHeader('Cache-Control', 'no-cache');
       res.sendFile(path.join(clientDist, 'index.html'));
     });
   } else {
