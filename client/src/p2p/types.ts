@@ -36,8 +36,11 @@ export interface IncomingFileOffer {
   offer: FileOfferMessage;
 }
 
+export type SignalingStatus = 'connecting' | 'connected' | 'disconnected';
+
 /** Events the P2P layer raises toward the UI. */
 export interface P2PEvents extends Record<string, unknown> {
+  signaling: SignalingStatus;
   devices: DeviceDTO[];
   connectRequest: IncomingConnectRequest;
   peerState: { deviceId: string; state: PeerConnectionState };

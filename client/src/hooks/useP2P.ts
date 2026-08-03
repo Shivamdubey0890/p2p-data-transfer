@@ -6,8 +6,15 @@ import {
   IncomingConnectRequest,
   IncomingFileOffer,
   PeerConnectionState,
+  SignalingStatus,
   TransferState,
 } from '../p2p/types';
+
+export function useSignalingStatus(manager: P2PManager): SignalingStatus {
+  const [status, setStatus] = useState<SignalingStatus>('connecting');
+  useEffect(() => manager.on('signaling', setStatus), [manager]);
+  return status;
+}
 
 /**
  * Bridges the imperative P2PManager into React state. One subscription per

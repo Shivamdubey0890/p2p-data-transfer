@@ -34,6 +34,7 @@ import {
   useMessages,
   useP2PErrors,
   usePeerStates,
+  useSignalingStatus,
   useTransfers,
 } from '../hooks/useP2P';
 import { api } from '../services/api';
@@ -43,6 +44,7 @@ export function DashboardPage({ session }: { session: ActiveSession }) {
   const { resetIdentity } = useApp();
   const { manager, device, deviceToken } = session;
 
+  const signaling = useSignalingStatus(manager);
   const devices = useDevices(manager);
   const transfers = useTransfers(manager);
   const peerStates = usePeerStates(manager);
@@ -136,6 +138,18 @@ export function DashboardPage({ session }: { session: ActiveSession }) {
           <Typography variant="h6" sx={{ flex: 1 }}>
             P2P Transfer
           </Typography>
+          <Chip
+            size="small"
+            label={
+              signaling === 'connected'
+                ? 'Server: connected'
+                : signaling === 'connecting'
+                  ? 'Server: connecting…'
+                  : 'Server: reconnecting…'
+            }
+            color={signaling === 'connected' ? 'success' : 'warning'}
+            sx={{ mr: 2 }}
+          />
           <Chip icon={<DevicesIcon />} label={device.name} sx={{ mr: 2 }} />
           <Button startIcon={<RestartAltIcon />} onClick={resetIdentity} color="inherit">
             New identity
@@ -164,6 +178,7 @@ export function DashboardPage({ session }: { session: ActiveSession }) {
               <PeerPanel
                 device={selected}
                 state={peerStates.get(selected.id) ?? 'idle'}
+                signalingUp={signaling === 'connected'}
                 messages={selectedMessages}
                 onConnect={() => guard(() => manager.requestConnection(selected.id))}
                 onDisconnect={() => manager.disconnectPeer(selected.id)}

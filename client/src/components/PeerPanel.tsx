@@ -21,6 +21,7 @@ import { DropZone } from './DropZone';
 interface Props {
   device: DeviceDTO;
   state: PeerConnectionState;
+  signalingUp: boolean;
   messages: ChatMessage[];
   onConnect(): void;
   onDisconnect(): void;
@@ -36,6 +37,7 @@ function renderBody(message: TextMessage | JsonMessage): string {
 export function PeerPanel({
   device,
   state,
+  signalingUp,
   messages,
   onConnect,
   onDisconnect,
@@ -79,9 +81,15 @@ export function PeerPanel({
             startIcon={<LinkIcon />}
             variant="contained"
             onClick={onConnect}
-            disabled={state === 'requesting' || state === 'connecting'}
+            disabled={!signalingUp || state === 'requesting' || state === 'connecting'}
           >
-            {state === 'requesting' ? 'Waiting…' : state === 'connecting' ? 'Connecting…' : 'Connect'}
+            {!signalingUp
+              ? 'Waiting for server…'
+              : state === 'requesting'
+                ? 'Waiting…'
+                : state === 'connecting'
+                  ? 'Connecting…'
+                  : 'Connect'}
           </Button>
         )}
       </Stack>

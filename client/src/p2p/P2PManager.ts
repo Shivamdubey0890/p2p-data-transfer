@@ -63,6 +63,15 @@ export class P2PManager extends Emitter<P2PEvents> {
 
     const s = this.socket;
 
+    this.emit('signaling', 'connecting');
+    s.on('connect', () => this.emit('signaling', 'connected'));
+    s.on('disconnect', () => {
+      this.emit('signaling', 'disconnected');
+      // Presence is stale while we're away — clear so the UI doesn't show ghosts.
+      this.devices = [];
+      this.emit('devices', []);
+    });
+
     s.on(SocketEvents.DeviceList, ({ devices }: { devices: DeviceDTO[] }) => {
       this.devices = devices.filter((d) => d.id !== this.deviceId);
       this.emit('devices', [...this.devices]);
@@ -132,6 +141,9 @@ export class P2PManager extends Emitter<P2PEvents> {
 
   /** Step 1 (initiator): permission check with M1, then ask the peer. */
   async requestConnection(toDeviceId: string): Promise<void> {
+    if (!this.socket?.connected) {
+      throw new Error('Not connected to the server yet — wait for "Server: connected", then retry');
+    }
     const { iceServers } = await api.connect(this.deviceToken, toDeviceId);
     this.iceServers = iceServers;
     this.authorizedPeers.add(toDeviceId);
