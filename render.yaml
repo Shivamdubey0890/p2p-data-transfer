@@ -5,7 +5,9 @@ services:
     name: p2p-transfer-server
     runtime: node
     plan: free
-    buildCommand: npm --prefix server install && npm --prefix server run build
+    # --include=dev: NODE_ENV=production would otherwise skip devDependencies,
+    # and the TypeScript compiler is a devDependency.
+    buildCommand: npm --prefix server ci --include=dev && npm --prefix server run build
     startCommand: node server/dist/server/src/index.js
     healthCheckPath: /api/health
     envVars:
