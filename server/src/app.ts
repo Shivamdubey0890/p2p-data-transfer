@@ -21,9 +21,15 @@ export function buildApp(container: Container, signaling: () => SignalingGateway
   app.use('/api', buildRouter(container.auth, container.devices, container.history, signaling));
 
   // Single-service mode: serve the built client from the same origin when
-  // present (client/dist relative to the repo root / working directory).
-  const clientDist = path.resolve(process.cwd(), 'client/dist');
-  if (fs.existsSync(path.join(clientDist, 'index.html'))) {
+  // present. Checked relative to both the working directory and this file's
+  // compiled location (server/dist/server/src → repo root is 4 levels up).
+  const candidates = [
+    path.resolve(process.cwd(), 'client/dist'),
+    path.resolve(__dirname, '../../../../client/dist'),
+  ];
+  const clientDist = candidates.find((p) => fs.existsSync(path.join(p, 'index.html')));
+  logger.info('Client dist lookup', { cwd: process.cwd(), candidates, found: clientDist ?? 'none' });
+  if (clientDist) {
     logger.info(`Serving client from ${clientDist}`);
     app.use(express.static(clientDist, { index: 'index.html', maxAge: '1h' }));
     // SPA fallback for non-API GET routes
