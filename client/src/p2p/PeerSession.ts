@@ -41,6 +41,7 @@ export class PeerSession {
   private remoteDescriptionSet = false;
   private closed = false;
   private restartAttempts = 0;
+  private connectTimer: ReturnType<typeof setTimeout> | null = null;
 
   private nextKey = 1;
   private readonly sendScheduler = new SendScheduler();
@@ -79,7 +80,26 @@ export class PeerSession {
 
   async initiate(): Promise<void> {
     this.attachChannel(this.pc.createDataChannel('data', { ordered: true }));
+    this.armConnectTimeout();
     await this.createAndSendOffer(false);
+  }
+
+  /** Don't sit in "connecting" forever — fail loudly if ICE can't find a path. */
+  private armConnectTimeout(): void {
+    if (this.connectTimer) return;
+    this.connectTimer = setTimeout(() => {
+      if (!this.isOpen && !this.closed) {
+        this.failAllTransfers('Could not establish a direct connection');
+        this.events.onFailed(this.peerDeviceId);
+      }
+    }, 30_000);
+  }
+
+  private clearConnectTimeout(): void {
+    if (this.connectTimer) {
+      clearTimeout(this.connectTimer);
+      this.connectTimer = null;
+    }
   }
 
   private async createAndSendOffer(iceRestart: boolean): Promise<void> {
@@ -89,6 +109,7 @@ export class PeerSession {
   }
 
   async handleOffer(sdp: RTCSessionDescriptionInit): Promise<void> {
+    this.armConnectTimeout();
     await this.pc.setRemoteDescription(sdp);
     this.remoteDescriptionSet = true;
     await this.flushCandidates();
@@ -143,6 +164,7 @@ export class PeerSession {
 
     channel.onopen = () => {
       this.restartAttempts = 0;
+      this.clearConnectTimeout();
       this.events.onChannelOpen(this.peerDeviceId);
     };
     channel.onclose = () => {
@@ -322,6 +344,7 @@ export class PeerSession {
   close(): void {
     if (this.closed) return;
     this.closed = true;
+    this.clearConnectTimeout();
     this.failAllTransfers('Connection closed');
     this.channel?.close();
     this.pc.close();

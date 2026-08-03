@@ -227,7 +227,13 @@ export class P2PManager extends Emitter<P2PEvents> {
         this.socket?.emit(SocketEvents.PeerConnected, { fromDeviceId: this.deviceId, toDeviceId: id });
       },
       onChannelClosed: (id) => this.setPeerState(id, 'disconnected'),
-      onFailed: (id) => this.teardownSession(id),
+      onFailed: (id) => {
+        this.teardownSession(id);
+        this.emit(
+          'error',
+          'Could not establish a device-to-device connection. The networks may require a TURN relay — check the server TURN configuration.'
+        );
+      },
       onFileOffer: (id, offer, receiver) => {
         this.registerReceiveTransfer(id, receiver);
         this.emit('fileOffer', {
