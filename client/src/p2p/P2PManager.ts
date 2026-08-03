@@ -128,6 +128,12 @@ export class P2PManager extends Emitter<P2PEvents> {
     });
 
     s.on('connect_error', (err) => {
+      // Expected after server restarts (in-memory registry wiped): the app
+      // recovers by registering a fresh identity — no scary error needed.
+      if (/unknown device|invalid or expired token/i.test(err.message)) {
+        this.emit('staleIdentity', null);
+        return;
+      }
       this.emit('error', `Signaling connection error: ${err.message}`);
     });
 

@@ -40,6 +40,8 @@ export type SignalingStatus = 'connecting' | 'connected' | 'disconnected';
 
 /** Events the P2P layer raises toward the UI. */
 export interface P2PEvents extends Record<string, unknown> {
+  /** Server no longer knows this device (restart wiped presence) — re-register. */
+  staleIdentity: null;
   signaling: SignalingStatus;
   devices: DeviceDTO[];
   connectRequest: IncomingConnectRequest;

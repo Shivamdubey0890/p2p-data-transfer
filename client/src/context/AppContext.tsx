@@ -87,15 +87,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // If the server restarted, our stored device is gone and the socket is
-  // rejected — drop the stale identity and register a fresh one.
+  // rejected — drop the stale identity and register a fresh one. Retries
+  // because the server may still be mid-restart when we first try.
+  const recovering = useRef(false);
   useEffect(() => {
     if (!session) return;
-    return session.manager.on('error', (message) => {
-      if (/unknown device|invalid or expired token/i.test(message)) {
-        session.manager.stop();
-        sessionStorage.removeItem(STORAGE_KEY);
-        void registerFresh();
-      }
+    return session.manager.on('staleIdentity', () => {
+      if (recovering.current) return;
+      recovering.current = true;
+      session.manager.stop();
+      sessionStorage.removeItem(STORAGE_KEY);
+      const attempt = (triesLeft: number) => {
+        registerFresh()
+          .then(() => {
+            recovering.current = false;
+          })
+          .catch(() => {
+            if (triesLeft > 0) setTimeout(() => attempt(triesLeft - 1), 3000);
+            else recovering.current = false;
+          });
+      };
+      attempt(10);
     });
   }, [session, registerFresh]);
 
