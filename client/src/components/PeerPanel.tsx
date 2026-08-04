@@ -11,6 +11,7 @@ import {
 } from '@mui/material';
 import LinkIcon from '@mui/icons-material/Link';
 import LinkOffIcon from '@mui/icons-material/LinkOff';
+import PersonRemoveIcon from '@mui/icons-material/PersonRemove';
 import SendIcon from '@mui/icons-material/Send';
 import DataObjectIcon from '@mui/icons-material/DataObject';
 import { useState } from 'react';
@@ -22,9 +23,11 @@ interface Props {
   device: DeviceDTO;
   state: PeerConnectionState;
   signalingUp: boolean;
+  trusted: boolean;
   messages: ChatMessage[];
   onConnect(): void;
   onDisconnect(): void;
+  onUntrust(): void;
   onSendFiles(files: File[]): void;
   onSendText(text: string): void;
   onSendJson(json: unknown): void;
@@ -38,9 +41,11 @@ export function PeerPanel({
   device,
   state,
   signalingUp,
+  trusted,
   messages,
   onConnect,
   onDisconnect,
+  onUntrust,
   onSendFiles,
   onSendText,
   onSendJson,
@@ -72,6 +77,13 @@ export function PeerPanel({
         <Typography variant="h6" sx={{ flex: 1 }}>
           {device.name}
         </Typography>
+        {trusted && (
+          <Tooltip title="Forget this device: auto-connect stops and its next connection request will need your approval again">
+            <Button startIcon={<PersonRemoveIcon />} color="error" size="small" onClick={onUntrust}>
+              Forget
+            </Button>
+          </Tooltip>
+        )}
         {connected ? (
           <Button startIcon={<LinkOffIcon />} color="warning" onClick={onDisconnect}>
             Disconnect

@@ -42,6 +42,8 @@ export type SignalingStatus = 'connecting' | 'connected' | 'disconnected';
 export interface P2PEvents extends Record<string, unknown> {
   /** Server no longer knows this device (restart wiped presence) — re-register. */
   staleIdentity: null;
+  /** Current trusted peer ids (auto-accept + auto-reconnect list). */
+  trusted: string[];
   signaling: SignalingStatus;
   devices: DeviceDTO[];
   connectRequest: IncomingConnectRequest;

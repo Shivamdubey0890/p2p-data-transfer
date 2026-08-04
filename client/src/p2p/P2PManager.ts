@@ -299,7 +299,27 @@ export class P2PManager extends Emitter<P2PEvents> {
   private markTrusted(peerId: string): void {
     if (this.trustedPeers.has(peerId)) return;
     this.trustedPeers.add(peerId);
+    this.persistTrusted();
+  }
+
+  /**
+   * Forget a peer: no more auto-accept or auto-reconnect. Their next connect
+   * request shows the consent dialog again. Also closes any open session.
+   */
+  untrustPeer(peerId: string): void {
+    this.trustedPeers.delete(peerId);
+    this.reconnectAttempts.delete(peerId);
+    this.persistTrusted();
+    if (this.sessions.has(peerId)) this.disconnectPeer(peerId);
+  }
+
+  getTrustedPeers(): string[] {
+    return [...this.trustedPeers];
+  }
+
+  private persistTrusted(): void {
     sessionStorage.setItem('p2p-trusted', JSON.stringify([...this.trustedPeers]));
+    this.emit('trusted', [...this.trustedPeers]);
   }
 
   /**

@@ -36,6 +36,7 @@ import {
   usePeerStates,
   useSignalingStatus,
   useTransfers,
+  useTrustedPeers,
 } from '../hooks/useP2P';
 import { api } from '../services/api';
 import { formatBytes } from '../utils/format';
@@ -45,6 +46,7 @@ export function DashboardPage({ session }: { session: ActiveSession }) {
   const { manager, device, deviceToken } = session;
 
   const signaling = useSignalingStatus(manager);
+  const trustedPeers = useTrustedPeers(manager);
   const devices = useDevices(manager);
   const transfers = useTransfers(manager);
   const peerStates = usePeerStates(manager);
@@ -179,9 +181,11 @@ export function DashboardPage({ session }: { session: ActiveSession }) {
                 device={selected}
                 state={peerStates.get(selected.id) ?? 'idle'}
                 signalingUp={signaling === 'connected'}
+                trusted={trustedPeers.includes(selected.id)}
                 messages={selectedMessages}
                 onConnect={() => guard(() => manager.requestConnection(selected.id))}
                 onDisconnect={() => manager.disconnectPeer(selected.id)}
+                onUntrust={() => manager.untrustPeer(selected.id)}
                 onSendFiles={(files) =>
                   files.forEach((f) => guard(() => manager.sendFile(selected.id, f)))
                 }

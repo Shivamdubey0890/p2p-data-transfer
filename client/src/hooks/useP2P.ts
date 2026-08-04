@@ -10,6 +10,12 @@ import {
   TransferState,
 } from '../p2p/types';
 
+export function useTrustedPeers(manager: P2PManager): string[] {
+  const [trusted, setTrusted] = useState<string[]>(() => manager.getTrustedPeers());
+  useEffect(() => manager.on('trusted', setTrusted), [manager]);
+  return trusted;
+}
+
 export function useSignalingStatus(manager: P2PManager): SignalingStatus {
   const [status, setStatus] = useState<SignalingStatus>('connecting');
   useEffect(() => manager.on('signaling', setStatus), [manager]);
