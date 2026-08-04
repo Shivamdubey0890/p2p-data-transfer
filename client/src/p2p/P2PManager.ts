@@ -99,12 +99,20 @@ export class P2PManager extends Emitter<P2PEvents> {
     s.on(SocketEvents.DeviceOffline, ({ deviceId }: { deviceId: string }) => {
       this.devices = this.devices.filter((d) => d.id !== deviceId);
       this.emit('devices', [...this.devices]);
-      if (this.sessions.has(deviceId)) this.teardownSession(deviceId);
+      // Do NOT tear down the peer session: the P2P link is independent of
+      // signaling presence (a backgrounded mobile browser drops its socket
+      // while the DataChannel is still fine). PeerSession detects real drops.
     });
 
     s.on(SocketEvents.ConnectRequest, (p: ConnectRequestPayload) => {
       // Known peer → seamless reconnect, no dialog.
       if (this.trustedPeers.has(p.fromDeviceId)) {
+        // Glare guard: if both sides requested at once, the smaller deviceId
+        // stays initiator — it ignores the peer's request and waits for the
+        // peer to accept its own.
+        if (this.getPeerState(p.fromDeviceId) === 'requesting' && this.deviceId < p.fromDeviceId) {
+          return;
+        }
         void this.acceptConnection(p.fromDeviceId).catch(() => {});
         return;
       }
@@ -195,6 +203,15 @@ export class P2PManager extends Emitter<P2PEvents> {
       fromDeviceName: this.deviceName,
       toDeviceId,
     } satisfies ConnectRequestPayload);
+
+    // Never stay stuck in "requesting": if no response lands, reset so the
+    // user (or auto-reconnect) can try again.
+    setTimeout(() => {
+      if (this.getPeerState(toDeviceId) === 'requesting') {
+        this.setPeerState(toDeviceId, 'disconnected');
+        this.maybeAutoReconnect(toDeviceId);
+      }
+    }, 15_000);
   }
 
   /** Step 2 (responder): user accepted the incoming request. */
