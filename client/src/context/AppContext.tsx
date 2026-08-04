@@ -55,8 +55,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return active;
   }, []);
 
+  /**
+   * Register with a STABLE identity: reuse the previous device id + name from
+   * this tab so reloads and server restarts don't change who we are — peers'
+   * trust in us survives.
+   */
   const registerFresh = useCallback(async () => {
-    const { device, deviceToken } = await api.registerDevice(generateDeviceName(), detectPlatform());
+    let prevId: string | undefined;
+    let prevName: string | undefined;
+    try {
+      const raw = sessionStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const prev = JSON.parse(raw) as PersistedSession;
+        prevId = prev.device.id;
+        prevName = prev.device.name;
+      }
+    } catch {
+      /* fresh start */
+    }
+    const { device, deviceToken } = await api.registerDevice(
+      prevName ?? generateDeviceName(),
+      detectPlatform(),
+      prevId
+    );
     activate({ device, deviceToken });
   }, [activate]);
 
@@ -96,7 +117,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (recovering.current) return;
       recovering.current = true;
       session.manager.stop();
-      sessionStorage.removeItem(STORAGE_KEY);
+      // Keep sessionStorage: registerFresh reuses the same device id + name.
       const attempt = (triesLeft: number) => {
         registerFresh()
           .then(() => {

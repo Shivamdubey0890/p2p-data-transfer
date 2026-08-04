@@ -66,6 +66,12 @@ export interface LoginResponse {
 export interface RegisterDeviceRequest {
   name: string;
   platform: string;
+  /**
+   * Client-chosen stable device UUID. Lets a device keep the same identity
+   * across reloads and server restarts, so trust relationships and
+   * reconnects are seamless. Server validates the format.
+   */
+  deviceId?: string;
 }
 
 export interface RegisterDeviceResponse {

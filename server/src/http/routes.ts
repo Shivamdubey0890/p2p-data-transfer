@@ -62,8 +62,8 @@ export function buildRouter(
   router.post(
     '/register-device',
     wrap(async (req, res) => {
-      const { name, platform } = req.body as RegisterDeviceRequest;
-      const device = await devices.register('anonymous', name ?? '', platform ?? '');
+      const { name, platform, deviceId } = req.body as RegisterDeviceRequest;
+      const device = await devices.register('anonymous', name ?? '', platform ?? '', deviceId);
       const deviceToken = auth.issueDeviceToken('anonymous', device.id);
       res.status(201).json({ device: DeviceService.toDTO(device), deviceToken });
     })

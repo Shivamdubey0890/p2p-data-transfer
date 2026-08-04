@@ -7,10 +7,20 @@ import { HttpError } from '../http/errors';
 export class DeviceService {
   constructor(private readonly devices: IDeviceRepository) {}
 
-  async register(userId: string, name: string, platform: string): Promise<Device> {
+  private static readonly UUID_RE =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  async register(
+    userId: string,
+    name: string,
+    platform: string,
+    requestedId?: string
+  ): Promise<Device> {
     if (!name || name.length > 64) throw new HttpError(400, 'Device name is required (max 64 chars)');
+    // Stable client-chosen UUID keeps identity across reloads/restarts.
+    const id = requestedId && DeviceService.UUID_RE.test(requestedId) ? requestedId : uuid();
     const device: Device = {
-      id: uuid(),
+      id,
       userId,
       name,
       platform: platform || 'unknown',

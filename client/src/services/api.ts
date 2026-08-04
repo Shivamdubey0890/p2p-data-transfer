@@ -42,11 +42,11 @@ export const api = {
   login: (username: string, password: string) =>
     request<LoginResponse>('/login', { method: 'POST', body: { username, password } }),
 
-  /** Anonymous — no account required. */
-  registerDevice: (name: string, platform: string) =>
+  /** Anonymous — no account required. deviceId keeps a stable identity. */
+  registerDevice: (name: string, platform: string, deviceId?: string) =>
     request<RegisterDeviceResponse>('/register-device', {
       method: 'POST',
-      body: { name, platform },
+      body: { name, platform, deviceId },
     }),
 
   listDevices: (deviceToken: string) =>

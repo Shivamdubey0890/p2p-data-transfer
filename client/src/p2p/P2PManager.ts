@@ -38,6 +38,15 @@ export class P2PManager extends Emitter<P2PEvents> {
   private readonly peerStates = new Map<string, PeerConnectionState>();
   /** Peers we've accepted/initiated — offers from anyone else are ignored. */
   private readonly authorizedPeers = new Set<string>();
+  /**
+   * Peers the user has connected with before (per tab). Their connect
+   * requests are auto-accepted and dropped connections auto-reconnect —
+   * no repeated dialogs.
+   */
+  private readonly trustedPeers = new Set<string>(
+    JSON.parse(sessionStorage.getItem('p2p-trusted') ?? '[]') as string[]
+  );
+  private readonly reconnectAttempts = new Map<string, number>();
   private devices: DeviceDTO[] = [];
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private readonly transfers = new Map<string, TransferEntry>();
@@ -76,12 +85,15 @@ export class P2PManager extends Emitter<P2PEvents> {
     s.on(SocketEvents.DeviceList, ({ devices }: { devices: DeviceDTO[] }) => {
       this.devices = devices.filter((d) => d.id !== this.deviceId);
       this.emit('devices', [...this.devices]);
+      this.devices.forEach((d) => this.maybeAutoReconnect(d.id));
     });
 
     s.on(SocketEvents.DeviceOnline, (device: DeviceDTO) => {
       if (device.id === this.deviceId) return;
       this.devices = [...this.devices.filter((d) => d.id !== device.id), device];
       this.emit('devices', [...this.devices]);
+      this.reconnectAttempts.delete(device.id); // fresh appearance, fresh budget
+      this.maybeAutoReconnect(device.id);
     });
 
     s.on(SocketEvents.DeviceOffline, ({ deviceId }: { deviceId: string }) => {
@@ -91,6 +103,11 @@ export class P2PManager extends Emitter<P2PEvents> {
     });
 
     s.on(SocketEvents.ConnectRequest, (p: ConnectRequestPayload) => {
+      // Known peer → seamless reconnect, no dialog.
+      if (this.trustedPeers.has(p.fromDeviceId)) {
+        void this.acceptConnection(p.fromDeviceId).catch(() => {});
+        return;
+      }
       this.emit('connectRequest', { fromDeviceId: p.fromDeviceId, fromDeviceName: p.fromDeviceName });
     });
 
@@ -185,6 +202,7 @@ export class P2PManager extends Emitter<P2PEvents> {
     const { iceServers } = await api.connect(this.deviceToken, fromDeviceId);
     this.iceServers = iceServers;
     this.authorizedPeers.add(fromDeviceId);
+    this.markTrusted(fromDeviceId);
     this.setPeerState(fromDeviceId, 'connecting');
     this.socket?.emit(SocketEvents.ConnectResponse, {
       fromDeviceId: this.deviceId,
@@ -229,6 +247,8 @@ export class P2PManager extends Emitter<P2PEvents> {
         }),
     }, {
       onChannelOpen: (id) => {
+        this.markTrusted(id);
+        this.reconnectAttempts.delete(id);
         this.setPeerState(id, 'connected');
         this.socket?.emit(SocketEvents.PeerConnected, { fromDeviceId: this.deviceId, toDeviceId: id });
       },
@@ -271,6 +291,37 @@ export class P2PManager extends Emitter<P2PEvents> {
     }
     this.authorizedPeers.delete(peerId);
     this.setPeerState(peerId, 'disconnected');
+    this.maybeAutoReconnect(peerId);
+  }
+
+  // -- Seamless reconnection ----------------------------------------------
+
+  private markTrusted(peerId: string): void {
+    if (this.trustedPeers.has(peerId)) return;
+    this.trustedPeers.add(peerId);
+    sessionStorage.setItem('p2p-trusted', JSON.stringify([...this.trustedPeers]));
+  }
+
+  /**
+   * Reconnect to a trusted peer automatically. Only the side with the
+   * smaller deviceId initiates (avoids both sides offering at once); the
+   * other side auto-accepts via the trusted-peer path.
+   */
+  private maybeAutoReconnect(peerId: string): void {
+    if (!this.trustedPeers.has(peerId)) return;
+    if (this.deviceId >= peerId) return;
+    if (this.sessions.get(peerId)?.isOpen) return;
+    const attempts = this.reconnectAttempts.get(peerId) ?? 0;
+    if (attempts >= 5) return;
+    this.reconnectAttempts.set(peerId, attempts + 1);
+    setTimeout(() => {
+      if (!this.socket?.connected) return;
+      if (!this.devices.some((d) => d.id === peerId)) return;
+      if (this.sessions.get(peerId)?.isOpen) return;
+      const state = this.getPeerState(peerId);
+      if (state === 'connecting' || state === 'requesting') return;
+      this.requestConnection(peerId).catch(() => {});
+    }, 1500 + attempts * 2500);
   }
 
   // -- Messaging -----------------------------------------------------------
